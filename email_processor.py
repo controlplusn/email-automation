@@ -30,7 +30,7 @@ class EmailProcessor:
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.client = genai.Client(api_key=api_key)
-        self.model_name = "gemini-2.0-flash"
+        self.model_name = "gemini-3-flash-preview"
         self.processed_ids = set()
 
     def connect_imap(self):
@@ -141,16 +141,11 @@ Customer asking about product shipping times"""
                 model=self.model_name,
                 contents=prompt
             )
-            result = response.text.strip()
-            
-            lines = result.split('\n', 1)
-            category = lines[0].strip()
-            reason = lines[1].strip() if len(lines) > 1 else "No reason provided"
-            
-            return category, reason
+            result = response.text.strip().split('\n')
+            return result[0].strip(), (result[1].strip() if len(result) > 1 else "No reason")
         except Exception as e:
             print(f"Error categorizing: {e}")
-            return "OTHER", "Error in categorization"
+            return "OTHER", str(e)
     
     def draft_response(self, email_data, category):
         # LLM for draft response
@@ -171,7 +166,10 @@ Requirements:
 Draft the complete email:"""
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text.strip()
         except Exception as e:
             print(f"Error drafting response: {e}")
@@ -257,6 +255,8 @@ Draft the complete email:"""
             email_data['category'] = category
             print(f"Category: {category}")
             print(f"Reason: {reason}")
+
+            time.sleep(2)
             
             # Draft response
             response = self.draft_response(email_data, category)
